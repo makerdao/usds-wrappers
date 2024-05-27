@@ -35,12 +35,12 @@ interface DaiJoinLike {
 // Based on https://github.com/makerdao/dss-lite-psm/commit/374bb08b09a3f4798858fd841bab8e79719266c8
 // Assumes funds are dealt to it and to the pocket, so DAI minting is not needed
 contract MockLitePsm {
-    VatLike public immutable vat;
+    VatLike     public immutable vat;
     DaiJoinLike public immutable daiJoin;
-    GemLike public immutable dai;
-    GemLike public immutable gem;
-    uint256 public immutable to18ConversionFactor;
-    address public immutable pocket;
+    GemLike     public immutable dai;
+    GemLike     public immutable gem;
+    address     public immutable pocket;
+    uint256     public immutable to18ConversionFactor;
 
     uint256 public tin;
     uint256 public tout;
