@@ -47,6 +47,7 @@ interface VatLike {
     function hope(address) external;
 }
 
+// A wrapper for around the Lite PSM contract
 contract NstPsmWrapper {
     PsmLike     public   immutable psm;
     GemLike     public   immutable gem;
