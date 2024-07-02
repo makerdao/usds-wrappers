@@ -20,9 +20,13 @@ interface PsmLike {
     function gem() external view returns (address);
     function vat() external view returns (address);
     function daiJoin() external view returns (address);
+    function tin() external view returns (uint256);
     function tout() external view returns (uint256);
     function sellGem(address, uint256) external returns (uint256);
     function buyGem(address, uint256) external returns (uint256);
+    function ilk() external view returns (bytes32);
+    function vow() external view returns (address);
+    function live() external view returns (uint256);
 }
 
 interface GemLike {
@@ -51,39 +55,40 @@ interface VatLike {
 contract NstPsmWrapper {
     PsmLike     public   immutable psm;
     GemLike     public   immutable gem;
-    DaiJoinLike public   immutable daiJoin;
+    DaiJoinLike internal immutable legacyDaiJoin;
     NstJoinLike public   immutable nstJoin;
-    GemLike     public   immutable dai;
+    GemLike     internal immutable legacyDai;
     GemLike     public   immutable nst;
+    VatLike     public   immutable vat;
     uint256     internal immutable to18ConversionFactor;
 
     uint256 constant WAD = 10 ** 18;
 
     constructor(address psm_, address nstJoin_) {
-        psm     = PsmLike(psm_);
-        gem     = GemLike(psm.gem());
-        daiJoin = DaiJoinLike(psm.daiJoin());
-        nstJoin = NstJoinLike(nstJoin_);
-        dai     = GemLike(daiJoin.dai());
-        nst     = GemLike(nstJoin.nst());
+        psm           = PsmLike(psm_);
+        gem           = GemLike(psm.gem());
+        legacyDaiJoin = DaiJoinLike(psm.daiJoin());
+        nstJoin       = NstJoinLike(nstJoin_);
+        legacyDai     = GemLike(legacyDaiJoin.dai());
+        nst           = GemLike(nstJoin.nst());
+        vat           = VatLike(psm.vat());
 
         to18ConversionFactor = 10 ** (18 - gem.decimals());
 
-        dai.approve(address(psm), type(uint256).max);
+        legacyDai.approve(address(psm), type(uint256).max);
         gem.approve(address(psm), type(uint256).max);
 
-        dai.approve(address(daiJoin), type(uint256).max);
+        legacyDai.approve(address(legacyDaiJoin), type(uint256).max);
         nst.approve(address(nstJoin), type(uint256).max);
 
-        VatLike vat = VatLike(psm.vat());
-        vat.hope(address(daiJoin));
+        vat.hope(address(legacyDaiJoin));
         vat.hope(address(nstJoin));
     }
 
     function sellGem(address usr, uint256 gemAmt) external returns (uint256 nstOutWad) {
         gem.transferFrom(msg.sender, address(this), gemAmt);
         nstOutWad = psm.sellGem(address(this), gemAmt);
-        daiJoin.join(address(this), nstOutWad);
+        legacyDaiJoin.join(address(this), nstOutWad);
         nstJoin.exit(usr, nstOutWad);
     }
 
@@ -92,7 +97,40 @@ contract NstPsmWrapper {
         nstInWad = gemAmt18 + gemAmt18 * psm.tout() / WAD;
         nst.transferFrom(msg.sender, address(this), nstInWad);
         nstJoin.join(address(this), nstInWad);
-        daiJoin.exit(address(this), nstInWad);
+        legacyDaiJoin.exit(address(this), nstInWad);
         psm.buyGem(usr, gemAmt);
+    }
+
+    // Partial Backward Compatibility Getters With the Lite-Psm
+    function ilk() external view returns (bytes32) {
+        return psm.ilk();
+    }
+
+    function vow() external view returns (address) {
+        return psm.vow();
+    }
+
+    function dai() external view returns (address) {
+        return address(nst); // Support not changing integrating code that works with the legacy dai based lite psm
+    }
+
+    function gemJoin() external view returns (address) {
+        return address(this); // Support not changing integrating code that queries and approves the gemJoin
+    }
+
+    function tin() external view returns (uint256) {
+        return psm.tin();
+    }
+
+    function tout() external view returns (uint256) {
+        return psm.tout();
+    }
+
+    function dec() external view returns (uint256) {
+        return gem.decimals();
+    }
+
+    function live() external view returns (uint256) {
+        return psm.live();
     }
 }
