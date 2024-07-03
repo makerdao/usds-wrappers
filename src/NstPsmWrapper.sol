@@ -57,12 +57,12 @@ interface VatLike {
 contract NstPsmWrapper {
     PsmLike     public   immutable psm;
     GemLike     public   immutable gem;
-    DaiJoinLike internal immutable legacyDaiJoin;
     NstJoinLike public   immutable nstJoin;
-    GemLike     internal immutable legacyDai;
     GemLike     public   immutable nst;
     VatLike     public   immutable vat;
     uint256     public   immutable to18ConversionFactor;
+    DaiJoinLike internal immutable legacyDaiJoin;
+    GemLike     internal immutable legacyDai;
 
     uint256 constant WAD = 10 ** 18;
     uint256 public constant HALTED = type(uint256).max; // For backwards compatibility with the Lite PSM
@@ -70,11 +70,11 @@ contract NstPsmWrapper {
     constructor(address psm_, address nstJoin_) {
         psm           = PsmLike(psm_);
         gem           = GemLike(psm.gem());
-        legacyDaiJoin = DaiJoinLike(psm.daiJoin());
         nstJoin       = NstJoinLike(nstJoin_);
-        legacyDai     = GemLike(legacyDaiJoin.dai());
         nst           = GemLike(nstJoin.nst());
         vat           = VatLike(psm.vat());
+        legacyDaiJoin = DaiJoinLike(psm.daiJoin());
+        legacyDai     = GemLike(legacyDaiJoin.dai());
 
         to18ConversionFactor = 10 ** (18 - gem.decimals());
 
