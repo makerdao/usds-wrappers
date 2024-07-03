@@ -18,7 +18,6 @@ pragma solidity ^0.8.21;
 
 interface VatLike {
     function hope(address) external;
-    function live() external view returns (uint256);
 }
 
 interface GemLike {
@@ -93,13 +92,5 @@ contract MockLitePsm {
 
     function gemJoin() external view returns (address) {
         return address(this);
-    }
-
-    function dec() external view returns (uint256) {
-        return gem.decimals();
-    }
-
-    function live() external view returns (uint256) {
-        return vat.live();
     }
 }

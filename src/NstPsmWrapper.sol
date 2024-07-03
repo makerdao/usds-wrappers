@@ -28,7 +28,6 @@ interface PsmLike {
     function buyGem(address, uint256) external returns (uint256);
     function ilk() external view returns (bytes32);
     function vow() external view returns (address);
-    function live() external view returns (uint256);
 }
 
 interface GemLike {
@@ -51,6 +50,7 @@ interface NstJoinLike {
 
 interface VatLike {
     function hope(address) external;
+    function live() external view returns (uint256);
 }
 
 // A wrapper around the Lite PSM contract
@@ -60,6 +60,9 @@ contract NstPsmWrapper {
     NstJoinLike public   immutable nstJoin;
     GemLike     public   immutable nst;
     VatLike     public   immutable vat;
+    bytes32     public   immutable ilk;    // For backwards compatibility with the Lite PSM
+    address     public   immutable pocket; // For backwards compatibility with the Lite PSM
+    uint256     public   immutable dec;    // For backwards compatibility with the Lite PSM
     uint256     public   immutable to18ConversionFactor;
     DaiJoinLike internal immutable legacyDaiJoin;
     GemLike     internal immutable legacyDai;
@@ -73,6 +76,9 @@ contract NstPsmWrapper {
         nstJoin       = NstJoinLike(nstJoin_);
         nst           = GemLike(nstJoin.nst());
         vat           = VatLike(psm.vat());
+        ilk           = psm.ilk();
+        pocket        = psm.pocket();
+        dec           = gem.decimals();
         legacyDaiJoin = DaiJoinLike(psm.daiJoin());
         legacyDai     = GemLike(legacyDaiJoin.dai());
 
@@ -106,10 +112,6 @@ contract NstPsmWrapper {
 
     // Partial Backward Compatibility Getters With the Lite Psm
 
-    function ilk() external view returns (bytes32) {
-        return psm.ilk();
-    }
-
     function vow() external view returns (address) {
         return psm.vow();
     }
@@ -120,10 +122,6 @@ contract NstPsmWrapper {
 
     function gemJoin() external view returns (address) {
         return address(this); // Supports not changing integrating code that queries and approves the gemJoin
-    }
-
-    function pocket() external view returns (address) {
-        return psm.pocket();
     }
 
     function tin() external view returns (uint256) {
@@ -138,11 +136,7 @@ contract NstPsmWrapper {
         return psm.buf();
     }
 
-    function dec() external view returns (uint256) {
-        return gem.decimals();
-    }
-
     function live() external view returns (uint256) {
-        return psm.live();
+        return vat.live();
     }
 }

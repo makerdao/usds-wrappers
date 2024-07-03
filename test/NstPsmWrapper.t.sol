@@ -78,6 +78,9 @@ contract NstPsmWrapperTest is DssTest {
         assertEq(address(wrapper.nstJoin()), nstJoin);
         assertEq(address(wrapper.nst()),     address(nst));
         assertEq(address(wrapper.vat()),     vat);
+        assertEq(wrapper.ilk(),              ilk);
+        assertEq(wrapper.pocket(),           pocket);
+        assertEq(wrapper.dec(),              6);
 
         assertEq(wrapper.to18ConversionFactor(), 10 ** 12);
 
@@ -96,15 +99,12 @@ contract NstPsmWrapperTest is DssTest {
         litePsm.file("tout", 34);
         litePsm.file("buf",  56);
 
-        assertEq(wrapper.ilk(),     ilk);
         assertEq(wrapper.vow(),     address(0xaaa));
         assertEq(wrapper.dai(),     address(nst));
         assertEq(wrapper.gemJoin(), address(wrapper));
-        assertEq(wrapper.pocket(),  pocket);
         assertEq(wrapper.tin(),     12);
         assertEq(wrapper.tout(),    34);
         assertEq(wrapper.buf(),     56);
-        assertEq(wrapper.dec(),     6);
         assertEq(wrapper.live(),    1);
         vm.prank(pauseProxy); VatLike(vat).cage();
         assertEq(wrapper.live(),    0);
