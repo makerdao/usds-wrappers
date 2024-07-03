@@ -115,11 +115,11 @@ contract NstPsmWrapper {
     }
 
     function dai() external view returns (address) {
-        return address(nst); // Support not changing integrating code that works with the legacy dai based lite psm
+        return address(nst); // Supports not changing integrating code that works with the legacy dai based lite psm
     }
 
     function gemJoin() external view returns (address) {
-        return address(this); // Support not changing integrating code that queries and approves the gemJoin
+        return address(this); // Supports not changing integrating code that queries and approves the gemJoin
     }
 
     function pocket() external view returns (address) {
