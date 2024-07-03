@@ -20,8 +20,10 @@ interface PsmLike {
     function gem() external view returns (address);
     function vat() external view returns (address);
     function daiJoin() external view returns (address);
+    function pocket() external view returns (address);
     function tin() external view returns (uint256);
     function tout() external view returns (uint256);
+    function buf() external view returns (uint256);
     function sellGem(address, uint256) external returns (uint256);
     function buyGem(address, uint256) external returns (uint256);
     function ilk() external view returns (bytes32);
@@ -60,9 +62,10 @@ contract NstPsmWrapper {
     GemLike     internal immutable legacyDai;
     GemLike     public   immutable nst;
     VatLike     public   immutable vat;
-    uint256     internal immutable to18ConversionFactor;
+    uint256     public   immutable to18ConversionFactor;
 
     uint256 constant WAD = 10 ** 18;
+    uint256 public constant HALTED = type(uint256).max; // For backwards compatibility with the Lite PSM
 
     constructor(address psm_, address nstJoin_) {
         psm           = PsmLike(psm_);
@@ -101,7 +104,8 @@ contract NstPsmWrapper {
         psm.buyGem(usr, gemAmt);
     }
 
-    // Partial Backward Compatibility Getters With the Lite-Psm
+    // Partial Backward Compatibility Getters With the Lite Psm
+
     function ilk() external view returns (bytes32) {
         return psm.ilk();
     }
@@ -118,12 +122,20 @@ contract NstPsmWrapper {
         return address(this); // Support not changing integrating code that queries and approves the gemJoin
     }
 
+    function pocket() external view returns (address) {
+        return psm.pocket();
+    }
+
     function tin() external view returns (uint256) {
         return psm.tin();
     }
 
     function tout() external view returns (uint256) {
         return psm.tout();
+    }
+
+    function buf() external view returns (uint256) {
+        return psm.buf();
     }
 
     function dec() external view returns (uint256) {

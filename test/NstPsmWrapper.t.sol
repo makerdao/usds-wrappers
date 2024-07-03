@@ -28,6 +28,12 @@ interface ChainlogLike {
 interface TokenLike {
     function approve(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
+    function allowance(address, address) external view returns (uint256);
+}
+
+interface VatLike {
+    function can(address, address) external view returns (uint256);
+    function cage() external;
 }
 
 contract NstPsmWrapperTest is DssTest {
@@ -38,23 +44,70 @@ contract NstPsmWrapperTest is DssTest {
     TokenLike     dai;
     MockLitePsm   litePsm;
     NstPsmWrapper wrapper;
-    
+    address       daiJoin;
+    address       nstJoin;
+    address       vat;
+    address       pauseProxy;
+
+    bytes32 constant ilk    = "ILK";
     address constant usr    = address(0x123);
     address constant pocket = address(0x456);
 
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
-        usdc = TokenLike(chainlog.getAddress("USDC"));
-        nst  = TokenLike(chainlog.getAddress("NST"));
-        dai  = TokenLike(chainlog.getAddress("MCD_DAI"));
+        usdc       = TokenLike(chainlog.getAddress("USDC"));
+        nst        = TokenLike(chainlog.getAddress("NST"));
+        dai        = TokenLike(chainlog.getAddress("MCD_DAI"));
+        daiJoin    = chainlog.getAddress("MCD_JOIN_DAI");
+        nstJoin    = chainlog.getAddress("NST_JOIN");
+        vat        = chainlog.getAddress("MCD_VAT");
+        pauseProxy = chainlog.getAddress("MCD_PAUSE_PROXY");
 
-        litePsm = new MockLitePsm(address(usdc), chainlog.getAddress("MCD_JOIN_DAI"), pocket);
+        litePsm = new MockLitePsm(ilk, address(usdc), daiJoin, pocket);
         vm.prank(pocket); usdc.approve(address(litePsm), type(uint256).max);
         deal(address(usdc), pocket, 100_000_000 * 10 ** 6);
-        deal(chainlog.getAddress("MCD_DAI"), address(litePsm), 100_000_000 * 10 ** 18);
+        deal(address(dai), address(litePsm), 100_000_000 * 10 ** 18);
 
-        wrapper = new NstPsmWrapper(address(litePsm), chainlog.getAddress("NST_JOIN"));
+        wrapper = new NstPsmWrapper(address(litePsm), nstJoin);
+    }
+
+    function testConstructor() public view {
+        assertEq(address(wrapper.psm()),     address(litePsm));
+        assertEq(address(wrapper.gem()),     address(usdc));
+        assertEq(address(wrapper.nstJoin()), nstJoin);
+        assertEq(address(wrapper.nst()),     address(nst));
+        assertEq(address(wrapper.vat()),     vat);
+
+        assertEq(wrapper.to18ConversionFactor(), 10 ** 12);
+
+        assertEq(dai.allowance( address(wrapper), address(litePsm)), type(uint256).max);
+        assertEq(usdc.allowance(address(wrapper), address(litePsm)), type(uint256).max);
+        assertEq(dai.allowance( address(wrapper),          daiJoin), type(uint256).max);
+        assertEq(nst.allowance( address(wrapper),          nstJoin), type(uint256).max);
+
+        assertEq(VatLike(vat).can(address(wrapper), daiJoin), 1);
+        assertEq(VatLike(vat).can(address(wrapper), nstJoin), 1);
+    }
+
+    function testGetters() public {
+        litePsm.file("vow",  address(0xaaa));
+        litePsm.file("tin",  12);
+        litePsm.file("tout", 34);
+        litePsm.file("buf",  56);
+
+        assertEq(wrapper.ilk(),     ilk);
+        assertEq(wrapper.vow(),     address(0xaaa));
+        assertEq(wrapper.dai(),     address(nst));
+        assertEq(wrapper.gemJoin(), address(wrapper));
+        assertEq(wrapper.pocket(),  pocket);
+        assertEq(wrapper.tin(),     12);
+        assertEq(wrapper.tout(),    34);
+        assertEq(wrapper.buf(),     56);
+        assertEq(wrapper.dec(),     6);
+        assertEq(wrapper.live(),    1);
+        vm.prank(pauseProxy); VatLike(vat).cage();
+        assertEq(wrapper.live(),    0);
     }
 
     function testSellGem() public {
