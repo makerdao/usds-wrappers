@@ -35,19 +35,23 @@ interface DaiJoinLike {
 // Based on https://github.com/makerdao/dss-lite-psm/commit/374bb08b09a3f4798858fd841bab8e79719266c8
 // Assumes funds are dealt to it and to the pocket, so DAI minting is not needed
 contract MockLitePsm {
+    bytes32     public immutable ilk;
     VatLike     public immutable vat;
     DaiJoinLike public immutable daiJoin;
     GemLike     public immutable dai;
     GemLike     public immutable gem;
-    address     public immutable pocket;
     uint256     public immutable to18ConversionFactor;
+    address     public immutable pocket;
 
+    address public vow;
     uint256 public tin;
     uint256 public tout;
+    uint256 public buf;
 
     uint256 internal constant WAD = 10 ** 18;
 
-    constructor(address gem_, address daiJoin_, address pocket_) {
+    constructor(bytes32 ilk_, address gem_, address daiJoin_, address pocket_) {
+        ilk     = ilk_;
         gem     = GemLike(gem_);
         daiJoin = DaiJoinLike(daiJoin_);
         vat     = VatLike(daiJoin.vat());
@@ -61,9 +65,15 @@ contract MockLitePsm {
     }
 
     // Non-authed version for testing, do not copy
+    function file(bytes32 what, address data) external {
+        if (what == "vow") vow = data;
+    }
+
+    // Non-authed version for testing, do not copy
     function file(bytes32 what, uint256 data) external {
         if      (what == "tin")  tin  = data;
         else if (what == "tout") tout = data;
+        else if (what == "buf")  buf = data;
     }
 
     function sellGem(address usr, uint256 gemAmt) external returns (uint256 daiOutWad) {
@@ -82,9 +92,5 @@ contract MockLitePsm {
 
     function gemJoin() external view returns (address) {
         return address(this);
-    }
-
-    function dec() external view returns (uint256) {
-        return gem.decimals();
     }
 }
