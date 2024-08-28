@@ -18,8 +18,8 @@ pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
 
-import { NstPsmWrapper } from "src/NstPsmWrapper.sol";
-import { MockLitePsm }   from "test/mocks/MockLitePsm.sol";
+import { UsdsPsmWrapper } from "src/UsdsPsmWrapper.sol";
+import { MockLitePsm }    from "test/mocks/MockLitePsm.sol";
 
 interface ChainlogLike {
     function getAddress(bytes32) external view returns (address);
@@ -36,18 +36,18 @@ interface VatLike {
     function cage() external;
 }
 
-contract NstPsmWrapperTest is DssTest {
+contract UsdsPsmWrapperTest is DssTest {
     ChainlogLike constant chainlog = ChainlogLike(address(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F));
 
-    TokenLike     usdc;
-    TokenLike     nst;
-    TokenLike     dai;
-    MockLitePsm   litePsm;
-    NstPsmWrapper wrapper;
-    address       daiJoin;
-    address       nstJoin;
-    address       vat;
-    address       pauseProxy;
+    TokenLike      usdc;
+    TokenLike      usds;
+    TokenLike      dai;
+    MockLitePsm    litePsm;
+    UsdsPsmWrapper wrapper;
+    address        daiJoin;
+    address        usdsJoin;
+    address        vat;
+    address        pauseProxy;
 
     bytes32 constant ilk    = "ILK";
     address constant usr    = address(0x123);
@@ -57,10 +57,10 @@ contract NstPsmWrapperTest is DssTest {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
         usdc       = TokenLike(chainlog.getAddress("USDC"));
-        nst        = TokenLike(chainlog.getAddress("NST"));
+        usds       = TokenLike(chainlog.getAddress("USDS"));
         dai        = TokenLike(chainlog.getAddress("MCD_DAI"));
         daiJoin    = chainlog.getAddress("MCD_JOIN_DAI");
-        nstJoin    = chainlog.getAddress("NST_JOIN");
+        usdsJoin   = chainlog.getAddress("USDS_JOIN");
         vat        = chainlog.getAddress("MCD_VAT");
         pauseProxy = chainlog.getAddress("MCD_PAUSE_PROXY");
 
@@ -69,28 +69,28 @@ contract NstPsmWrapperTest is DssTest {
         deal(address(usdc), pocket, 100_000_000 * 10 ** 6);
         deal(address(dai), address(litePsm), 100_000_000 * 10 ** 18);
 
-        wrapper = new NstPsmWrapper(address(litePsm), nstJoin);
+        wrapper = new UsdsPsmWrapper(address(litePsm), usdsJoin);
     }
 
     function testConstructor() public view {
-        assertEq(address(wrapper.psm()),     address(litePsm));
-        assertEq(address(wrapper.gem()),     address(usdc));
-        assertEq(address(wrapper.nstJoin()), nstJoin);
-        assertEq(address(wrapper.nst()),     address(nst));
-        assertEq(address(wrapper.vat()),     vat);
-        assertEq(wrapper.ilk(),              ilk);
-        assertEq(wrapper.pocket(),           pocket);
-        assertEq(wrapper.dec(),              6);
+        assertEq(address(wrapper.psm()),      address(litePsm));
+        assertEq(address(wrapper.gem()),      address(usdc));
+        assertEq(address(wrapper.usdsJoin()), usdsJoin);
+        assertEq(address(wrapper.usds()),     address(usds));
+        assertEq(address(wrapper.vat()),      vat);
+        assertEq(wrapper.ilk(),               ilk);
+        assertEq(wrapper.pocket(),            pocket);
+        assertEq(wrapper.dec(),               6);
 
         assertEq(wrapper.to18ConversionFactor(), 10 ** 12);
 
         assertEq(dai.allowance( address(wrapper), address(litePsm)), type(uint256).max);
         assertEq(usdc.allowance(address(wrapper), address(litePsm)), type(uint256).max);
         assertEq(dai.allowance( address(wrapper),          daiJoin), type(uint256).max);
-        assertEq(nst.allowance( address(wrapper),          nstJoin), type(uint256).max);
+        assertEq(usds.allowance(address(wrapper),         usdsJoin), type(uint256).max);
 
-        assertEq(VatLike(vat).can(address(wrapper), daiJoin), 1);
-        assertEq(VatLike(vat).can(address(wrapper), nstJoin), 1);
+        assertEq(VatLike(vat).can(address(wrapper),  daiJoin), 1);
+        assertEq(VatLike(vat).can(address(wrapper), usdsJoin), 1);
     }
 
     function testGetters() public {
@@ -100,7 +100,7 @@ contract NstPsmWrapperTest is DssTest {
         litePsm.file("buf",  56);
 
         assertEq(wrapper.vow(),     address(0xaaa));
-        assertEq(wrapper.dai(),     address(nst));
+        assertEq(wrapper.dai(),     address(usds));
         assertEq(wrapper.gemJoin(), address(wrapper));
         assertEq(wrapper.tin(),     12);
         assertEq(wrapper.tout(),    34);
@@ -113,7 +113,7 @@ contract NstPsmWrapperTest is DssTest {
     function testSellGem() public {
         deal(address(usdc), address(this), 1000 * 10 ** 6);
 
-        uint256 nstUsrBefore     = nst.balanceOf(usr);
+        uint256 usdsUsrBefore    = usds.balanceOf(usr);
         uint256 daiPsmBefore     = dai.balanceOf(address(litePsm));
         uint256 usdcSellerBefore = usdc.balanceOf(address(this));
         uint256 usdcPocketBefore = usdc.balanceOf(pocket);
@@ -121,12 +121,12 @@ contract NstPsmWrapperTest is DssTest {
         usdc.approve(address(wrapper), 1000 * 10 ** 6);
         assertEq(wrapper.sellGem(usr, 1000 * 10 ** 6), 1000 * 10 ** 18);
 
-        assertEq(nst.balanceOf(usr),              nstUsrBefore     + 1000 * 10 ** 18);
+        assertEq(usds.balanceOf(usr),             usdsUsrBefore    + 1000 * 10 ** 18);
         assertEq(dai.balanceOf(address(litePsm)), daiPsmBefore     - 1000 * 10 ** 18);
         assertEq(usdc.balanceOf(address(this)),   usdcSellerBefore - 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(pocket),          usdcPocketBefore + 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(address(wrapper)), 0);
-        assertEq(nst.balanceOf(address(wrapper)),  0);
+        assertEq(usds.balanceOf(address(wrapper)), 0);
         assertEq(dai.balanceOf(address(wrapper)),  0);
     }
 
@@ -135,7 +135,7 @@ contract NstPsmWrapperTest is DssTest {
 
         deal(address(usdc), address(this), 1000 * 10 ** 6);
 
-        uint256 nstUsrBefore     = nst.balanceOf(usr);
+        uint256 usdsUsrBefore    = usds.balanceOf(usr);
         uint256 daiPsmBefore     = dai.balanceOf(address(litePsm));
         uint256 usdcSellerBefore = usdc.balanceOf(address(this));
         uint256 usdcPocketBefore = usdc.balanceOf(pocket);
@@ -143,54 +143,54 @@ contract NstPsmWrapperTest is DssTest {
         usdc.approve(address(wrapper), 1000 * 10 ** 6);
         assertEq(wrapper.sellGem(usr, 1000 * 10 ** 6), 990 * 10 ** 18);
 
-        assertEq(nst.balanceOf(usr),              nstUsrBefore     +  990 * 10 ** 18);
+        assertEq(usds.balanceOf(usr),             usdsUsrBefore    +  990 * 10 ** 18);
         assertEq(dai.balanceOf(address(litePsm)), daiPsmBefore     -  990 * 10 ** 18);
         assertEq(usdc.balanceOf(address(this)),   usdcSellerBefore - 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(pocket),          usdcPocketBefore + 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(address(wrapper)), 0);
-        assertEq(nst.balanceOf(address(wrapper)),  0);
+        assertEq(usds.balanceOf(address(wrapper)), 0);
         assertEq(dai.balanceOf(address(wrapper)),  0);
     }
 
     function testBuyGem() public {
-        deal(address(nst), address(this), 1000 * 10 ** 18);
+        deal(address(usds), address(this), 1000 * 10 ** 18);
 
-        uint256 nstBuyerBefore   = nst.balanceOf(address(this));
+        uint256 usdsBuyerBefore  = usds.balanceOf(address(this));
         uint256 daiPsmBefore     = dai.balanceOf(address(litePsm));
         uint256 usdcUsrBefore    = usdc.balanceOf(usr);
         uint256 usdcPocketBefore = usdc.balanceOf(pocket);
 
-        nst.approve(address(wrapper), 1000 * 10 ** 18);
+        usds.approve(address(wrapper), 1000 * 10 ** 18);
         assertEq(wrapper.buyGem(usr, 1000 * 10 ** 6), 1000 * 10 ** 18);
 
-        assertEq(nst.balanceOf(address(this)),    nstBuyerBefore   - 1000 * 10 ** 18);
+        assertEq(usds.balanceOf(address(this)),   usdsBuyerBefore  - 1000 * 10 ** 18);
         assertEq(dai.balanceOf(address(litePsm)), daiPsmBefore     + 1000 * 10 ** 18);
         assertEq(usdc.balanceOf(usr),             usdcUsrBefore    + 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(pocket),          usdcPocketBefore - 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(address(wrapper)), 0);
-        assertEq(nst.balanceOf(address(wrapper)),  0);
+        assertEq(usds.balanceOf(address(wrapper)), 0);
         assertEq(dai.balanceOf(address(wrapper)),  0);
     }
 
     function testBuyGemWithFee() public {
         litePsm.file("tout", 1 * 10 ** 18 / 100);
 
-        deal(address(nst), address(this), 1010 * 10 ** 18);
+        deal(address(usds), address(this), 1010 * 10 ** 18);
 
-        uint256 nstBuyerBefore   = nst.balanceOf(address(this));
+        uint256 usdsBuyerBefore  = usds.balanceOf(address(this));
         uint256 daiPsmBefore     = dai.balanceOf(address(litePsm));
         uint256 usdcUsrBefore    = usdc.balanceOf(usr);
         uint256 usdcPocketBefore = usdc.balanceOf(pocket);
 
-        nst.approve(address(wrapper), 1010 * 10 ** 18);
+        usds.approve(address(wrapper), 1010 * 10 ** 18);
         assertEq(wrapper.buyGem(usr, 1000 * 10 ** 6), 1010 * 10 ** 18);
 
-        assertEq(nst.balanceOf(address(this)),    nstBuyerBefore   - 1010 * 10 ** 18);
+        assertEq(usds.balanceOf(address(this)),   usdsBuyerBefore  - 1010 * 10 ** 18);
         assertEq(dai.balanceOf(address(litePsm)), daiPsmBefore     + 1010 * 10 ** 18);
         assertEq(usdc.balanceOf(usr),             usdcUsrBefore    + 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(pocket),          usdcPocketBefore - 1000 * 10 ** 6);
         assertEq(usdc.balanceOf(address(wrapper)), 0);
-        assertEq(nst.balanceOf(address(wrapper)),  0);
+        assertEq(usds.balanceOf(address(wrapper)), 0);
         assertEq(dai.balanceOf(address(wrapper)),  0);
     }
 }

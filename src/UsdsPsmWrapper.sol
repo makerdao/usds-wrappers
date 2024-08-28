@@ -42,8 +42,8 @@ interface DaiJoinLike {
     function exit(address, uint256) external;
 }
 
-interface NstJoinLike {
-    function nst() external view returns (address);
+interface UsdsJoinLike {
+    function usds() external view returns (address);
     function join(address, uint256) external;
     function exit(address, uint256) external;
 }
@@ -54,27 +54,27 @@ interface VatLike {
 }
 
 // A wrapper around the Lite PSM contract
-contract NstPsmWrapper {
-    PsmLike     public   immutable psm;
-    GemLike     public   immutable gem;
-    NstJoinLike public   immutable nstJoin;
-    GemLike     public   immutable nst;
-    VatLike     public   immutable vat;
-    bytes32     public   immutable ilk;    // For backwards compatibility with the Lite PSM
-    address     public   immutable pocket; // For backwards compatibility with the Lite PSM
-    uint256     public   immutable dec;    // For backwards compatibility with the Lite PSM
-    uint256     public   immutable to18ConversionFactor;
-    DaiJoinLike internal immutable legacyDaiJoin;
-    GemLike     internal immutable legacyDai;
+contract UsdsPsmWrapper {
+    PsmLike      public   immutable psm;
+    GemLike      public   immutable gem;
+    UsdsJoinLike public   immutable usdsJoin;
+    GemLike      public   immutable usds;
+    VatLike      public   immutable vat;
+    bytes32      public   immutable ilk;    // For backwards compatibility with the Lite PSM
+    address      public   immutable pocket; // For backwards compatibility with the Lite PSM
+    uint256      public   immutable dec;    // For backwards compatibility with the Lite PSM
+    uint256      public   immutable to18ConversionFactor;
+    DaiJoinLike  internal immutable legacyDaiJoin;
+    GemLike      internal immutable legacyDai;
 
     uint256 constant WAD = 10 ** 18;
     uint256 public constant HALTED = type(uint256).max; // For backwards compatibility with the Lite PSM
 
-    constructor(address psm_, address nstJoin_) {
+    constructor(address psm_, address usdsJoin_) {
         psm           = PsmLike(psm_);
         gem           = GemLike(psm.gem());
-        nstJoin       = NstJoinLike(nstJoin_);
-        nst           = GemLike(nstJoin.nst());
+        usdsJoin      = UsdsJoinLike(usdsJoin_);
+        usds          = GemLike(usdsJoin.usds());
         vat           = VatLike(psm.vat());
         ilk           = psm.ilk();
         pocket        = psm.pocket();
@@ -88,25 +88,25 @@ contract NstPsmWrapper {
         gem.approve(address(psm), type(uint256).max);
 
         legacyDai.approve(address(legacyDaiJoin), type(uint256).max);
-        nst.approve(address(nstJoin), type(uint256).max);
+        usds.approve(address(usdsJoin), type(uint256).max);
 
         vat.hope(address(legacyDaiJoin));
-        vat.hope(address(nstJoin));
+        vat.hope(address(usdsJoin));
     }
 
-    function sellGem(address usr, uint256 gemAmt) external returns (uint256 nstOutWad) {
+    function sellGem(address usr, uint256 gemAmt) external returns (uint256 usdsOutWad) {
         gem.transferFrom(msg.sender, address(this), gemAmt);
-        nstOutWad = psm.sellGem(address(this), gemAmt);
-        legacyDaiJoin.join(address(this), nstOutWad);
-        nstJoin.exit(usr, nstOutWad);
+        usdsOutWad = psm.sellGem(address(this), gemAmt);
+        legacyDaiJoin.join(address(this), usdsOutWad);
+        usdsJoin.exit(usr, usdsOutWad);
     }
 
-    function buyGem(address usr, uint256 gemAmt) external returns (uint256 nstInWad) {
+    function buyGem(address usr, uint256 gemAmt) external returns (uint256 usdsInWad) {
         uint256 gemAmt18 = gemAmt * to18ConversionFactor;
-        nstInWad = gemAmt18 + gemAmt18 * psm.tout() / WAD;
-        nst.transferFrom(msg.sender, address(this), nstInWad);
-        nstJoin.join(address(this), nstInWad);
-        legacyDaiJoin.exit(address(this), nstInWad);
+        usdsInWad = gemAmt18 + gemAmt18 * psm.tout() / WAD;
+        usds.transferFrom(msg.sender, address(this), usdsInWad);
+        usdsJoin.join(address(this), usdsInWad);
+        legacyDaiJoin.exit(address(this), usdsInWad);
         psm.buyGem(usr, gemAmt);
     }
 
@@ -117,7 +117,7 @@ contract NstPsmWrapper {
     }
 
     function dai() external view returns (address) {
-        return address(nst); // Supports not changing integrating code that works with the legacy dai based lite psm
+        return address(usds); // Supports not changing integrating code that works with the legacy dai based lite psm
     }
 
     function gemJoin() external view returns (address) {
